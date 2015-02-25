@@ -9,7 +9,7 @@ class World
 {
 public:
 
-    World(std::string _path);
+    World(std::string _path, std::string _nick, std::string _world, std::string _loginLink);
     ~World();
 
     cocos2d::Scene* getScene();
@@ -23,6 +23,9 @@ public:
 private:
 
     const std::string path; // path to world's directory
+    const std::string nick;
+    const std::string world;
+    const std::string loginLink;
 
     class Session
     {
@@ -31,13 +34,17 @@ private:
         Session()
         : ended(false)
         , unlockedAt(NULL)
+        , loggedIn(false)
         {}
 
         bool ended;
 
         TimePoint* unlockedAt; // NULL - unlocked now
 
+        /// Village* currentVillage;
         /// vector<Village*> unvisitedVillages;
+
+        bool loggedIn;
 
         // from, to - min/max time in seconds
         void pause(int from, int to)
@@ -47,6 +54,9 @@ private:
         }
 
     } *session; // NULL - no ongoing session
+
+    // http callbacks
+    void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
 
     TimePoint* nextSessionAt; // NULL - no incoming session
 

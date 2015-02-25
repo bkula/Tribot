@@ -3,8 +3,11 @@
 #include "Building.h"
 #include "Farming.h"
 
-World::World(std::string _path)
+World::World(std::string _path, std::string _nick, std::string _world, std::string _loginLink)
 : path(_path)
+, nick(_nick)
+, world(_world)
+, loginLink(_loginLink)
 , session(NULL)
 , nextSessionAt(new TimePoint(GET_TIME_NOW))
 , session_page(NULL)
@@ -15,6 +18,18 @@ World::World(std::string _path)
 , menuHidden(true)
 , runningFunc(NULL)
 {
+    cocos2d::FileUtils* FU =  cocos2d::FileUtils::getInstance();
+
+    // create world directory if necessary
+    if (! FU->isFileExist(path + "world.txt"))
+    {
+        createDirectory(path);
+
+        std::ofstream of(path + "world.txt");
+        if (! of.is_open()) std::cout << "ERROR: file " << path + "world.txt" << " can't be opened." << std::endl;
+        of.close();
+    }
+
     functionalities.push_back(new Building());
     functionalities.push_back(new Farming());
 
@@ -32,7 +47,7 @@ void World::update()
 {
     // session
     TimePoint now = GET_TIME_NOW;
-    if (session)
+    if (session) // running session
     {
         if (session->ended) {
 
@@ -49,12 +64,13 @@ void World::update()
             (this->*session_page)();
         }
 
-    } else if (*nextSessionAt < now) {
+    } else if (*nextSessionAt < now) { // create new session
 
         session = new Session();
 
         session_page = &World::session_login;
 
+        // next session in 1-4 hours
         nextSessionAt = new TimePoint(now + std::chrono::minutes(random(60,60*4)));
     }
 
@@ -73,14 +89,47 @@ void World::update()
 
 void World::session_login()
 {
-    session_page = &World::session_overview;
+    if (! session->loggedIn)
+    {
+        auto request = new cocos2d::network::HttpRequest();
+        request->setUrl(loginLink.c_str());
+        request->setRequestType(cocos2d::network::HttpRequest::Type::GET);
+        request->setResponseCallback( CC_CALLBACK_2(World::onLoggedIn, this));
+        char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+        request->setUserData(&userData);
+        cocos2d::network::HttpClient::getInstance()->send(request);
+        request->release();
 
-    // TODO
+        session->loggedIn = true;
+    }
+}
+
+void World::onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    if (! response->isSucceed()) {
+
+        ERROR("Can't log in");
+        session->ended = true;
+
+    } else {
+
+        std::vector<char> page = *(response->getResponseData());
+
+        std::cout << "Page contains of " << page.size() << " characters\n\n";
+        for (auto c: page) {
+            std::cout << c;
+        }
+        std::cout << "\n\n";
+
+        session_page = &World::session_overview;
+    }
 }
 
 void World::session_overview()
 {
-    std::cout << "OVERVIEW\n";
+    std::cout << "OVERVIEW of " << world << "\n";
+
+    //session_page = &World::session_main;
 
     if (1) session->ended = true;
 }

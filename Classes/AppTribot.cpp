@@ -5,17 +5,48 @@ AppTribot::AppTribot()
 : path(cocos2d::FileUtils::getInstance()->getWritablePath() + "TribotData/")
 {
     cocos2d::FileUtils* FU =  cocos2d::FileUtils::getInstance();
-std::cout << path + "Tribot.txt" << std::endl;
-    // init Tribot Directory if necessary
-    if (! FU->isFileExist(path + "Tribot.txt"))
+
+    // create Tribot Directory if necessary
+    if (! FU->isFileExist(path + "worlds.txt"))
     {
-        std::fstream file(path + "Tribot.txt");
-        std::cout << file.is_open() << "\n";
-        file.close();
+        createDirectory(path);
+
+        std::ofstream of(path + "worlds.txt");
+        if (! of.is_open()) std::cout << "ERROR: file " << path + "worlds.txt" << " can't be opened." << std::endl;
+        of.close();
     }
 
-    // temporarily
-    worlds.push_back(new World(path + "Kulawy22 pl77/"));
+    std::fstream file(path + "worlds.txt");
+
+    while (1)
+    {
+        std::string nick, world, link;
+        bool eof = false;
+
+        #define GET(str) \
+        if (eof) break; \
+        while (! eof) { \
+            if (std::getline(file, str)) { \
+                if (! str.empty()) break; /* ignore empty lines */ \
+            } else { \
+                eof = true; \
+            } \
+        }
+        GET(nick)
+        GET(world)
+        GET(link)
+        #undef GET
+
+        if (eof) break;
+
+        worlds.push_back(new World(path + nick + "|" + world + "/", nick, world, link));
+    }
+    file.close();
+
+    // init HttpClient
+    cocos2d::network::HttpClient::getInstance()->enableCookies(std::string(path + "cookies.txt").c_str());
+    cocos2d::network::HttpClient::getInstance()->setTimeoutForConnect(10);
+    cocos2d::network::HttpClient::getInstance()->setTimeoutForRead(10);
 }
 
 AppTribot::~AppTribot()
