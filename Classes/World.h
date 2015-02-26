@@ -27,39 +27,93 @@ private:
     const std::string world;
     const std::string loginLink;
 
+    class Village
+    {
+    public:
+
+        Village(std::string _id)
+        : id(_id)
+        {
+        }
+
+        const std::string id;
+        TWCoordinates coordinates;
+    };
+    std::vector<Village> villages;
+
     class Session
     {
     public:
 
-        Session()
+        Session(int villagesNumber)
         : ended(false)
         , unlockedAt(NULL)
-        , loggedIn(false)
-        {}
+        , loggingInPhase(0)
+        , reviewPhase(REVIEW_PHASE_START)
+        , startegyDevised(false)
+        , currentVillage(0)
+        , allVillagesReviewed(false)
+        {
+            villagesActions.reserve(villagesNumber);
+        }
 
         bool ended;
-
         TimePoint* unlockedAt; // NULL - unlocked now
 
-        /// Village* currentVillage;
-        /// vector<Village*> unvisitedVillages;
+        enum REVIEW_PHASES
+        {
+            REVIEW_PHASE_START, // always first
+            REVIEW_PHASE_MAP,
+            REVIEW_PHASE_REPORTS,
+            REVIEW_PHASE_END // always last
+        };
 
-        bool loggedIn;
+        int loggingInPhase; // 0 - not logged, 1 - logging in progress, 2 - logged in
+        int/*REVIEW_PHASES*/ reviewPhase;
+        bool startegyDevised;
+        int currentVillage;
+        bool allVillagesReviewed;
+
+        struct Actions // orders & expensions for each village
+        {
+            struct Order
+            {
+                TWArmy army;
+                TWCoordinates target;
+                bool isAttack;
+            };
+
+            std::vector<Order> order;
+            std::vector<TWBuilding> build;
+            std::vector<TWArmy> recruit;
+            std::vector<TWUnit> tech;
+        };
+        std::vector<Actions> villagesActions;
 
         // from, to - min/max time in seconds
-        void pause(int from, int to)
+        void pause(float from, float to)
         {
+            int _from = from * 1000.0f;
+            int _to = to * 1000.0f;
             DELETE(unlockedAt);
-            unlockedAt = new TimePoint(GET_TIME_NOW + std::chrono::seconds(from + (random() % (to-from))));
+            unlockedAt = new TimePoint(
+                GET_TIME_NOW
+                + std::chrono::milliseconds(_from + (random() % (_to-_from)))
+                + std::chrono::milliseconds(random() % 1000)
+            );
         }
 
     } *session; // NULL - no ongoing session
 
-    // http callbacks
-    void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void sessionUpdate();
+    void deviseStrategy();
 
     TimePoint* nextSessionAt; // NULL - no incoming session
 
+    // http callbacks
+    void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+
+    /*
     void (World::*session_page)(); // pointer to current session function
     void session_login();
     void session_overview();
@@ -68,6 +122,7 @@ private:
     void session_market();
     void session_place();
     void session_map();
+    */
 
     // scene
     cocos2d::Scene* scene;

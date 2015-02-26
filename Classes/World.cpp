@@ -10,7 +10,7 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
 , loginLink(_loginLink)
 , session(NULL)
 , nextSessionAt(new TimePoint(GET_TIME_NOW))
-, session_page(NULL)
+//, session_page(NULL)
 , scene(NULL)
 , menu(NULL)
 , shade(NULL)
@@ -34,6 +34,9 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
     functionalities.push_back(new Farming());
 
     runningFunc = functionalities[0];
+
+    // load villages
+    villages.push_back(Village("56723"));
 }
 
 World::~World()
@@ -45,34 +48,7 @@ World::~World()
 
 void World::update()
 {
-    // session
-    TimePoint now = GET_TIME_NOW;
-    if (session) // running session
-    {
-        if (session->ended) {
-
-            DELETE(session);
-
-        } else if (session->unlockedAt) {
-
-            if (*session->unlockedAt < now) {
-                DELETE(session->unlockedAt);
-            }
-
-        } else {
-
-            (this->*session_page)();
-        }
-
-    } else if (*nextSessionAt < now) { // create new session
-
-        session = new Session();
-
-        session_page = &World::session_login;
-
-        // next session in 1-4 hours
-        nextSessionAt = new TimePoint(now + std::chrono::minutes(random(60,60*4)));
-    }
+    sessionUpdate();
 
     // scene update
     if (scene && scene->isRunning()) {
@@ -87,6 +63,147 @@ void World::update()
     }
 }
 
+void World::sessionUpdate()
+{
+    // session
+    TimePoint now = GET_TIME_NOW;
+    if (session) // there is running session
+    {
+        // ending
+        if (session->ended)
+        {
+
+            DELETE(session);
+        }
+        // waiting
+        else if (session->unlockedAt)
+        {
+            if (*session->unlockedAt < now) {
+                DELETE(session->unlockedAt);
+            }
+        }
+        // logging in
+        else if (session->loggingInPhase < 2)
+        {
+            if (session->loggingInPhase == 0)
+            {
+                auto request = new cocos2d::network::HttpRequest();
+                request->setUrl(loginLink.c_str());
+                request->setRequestType(cocos2d::network::HttpRequest::Type::GET);
+                request->setResponseCallback( CC_CALLBACK_2(World::onLoggedIn, this));
+                char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+                request->setUserData(&userData);
+                cocos2d::network::HttpClient::getInstance()->send(request);
+                request->release();
+
+                session->loggingInPhase = 1;
+            }
+        }
+        // global review
+        else if (session->reviewPhase != Session::REVIEW_PHASES::REVIEW_PHASE_END)
+        {
+            #define P Session::REVIEW_PHASES
+
+            switch (session->reviewPhase) {
+
+            case P::REVIEW_PHASE_START:
+                std::cout << "Review phase started\n";
+                session->reviewPhase++;
+                break;
+
+            case P::REVIEW_PHASE_MAP:
+                // TODO
+                session->reviewPhase++;
+                break;
+
+            case P::REVIEW_PHASE_REPORTS:
+                // TODO
+                session->reviewPhase++;
+                break;
+
+            case P::REVIEW_PHASE_END:
+                //
+                session->reviewPhase++;
+                break;
+
+            default:
+                session->reviewPhase = P::REVIEW_PHASE_END;
+            }
+
+            #undef P
+        }
+        // villages review
+        else if (! session->allVillagesReviewed && session->currentVillage < villages.size())
+        {
+            // TODO
+            session->currentVillage++;
+        }
+        // devising strategy
+        else if (! session->allVillagesReviewed)
+        {
+            session->allVillagesReviewed = true;
+            session->currentVillage = 0;
+
+            deviseStrategy();
+        }
+        // and finally... playing (orders & expensions)
+        else if (session->currentVillage < villages.size())
+        {
+            // TODO
+            session->currentVillage++;
+        }
+        // when there is nothing to do...
+        else
+        {
+            session->ended = true;
+            std::cout << "Session ended normally\n";
+        }
+
+    } else if (*nextSessionAt < now) { // create new session
+
+        session = new Session(villages.size());
+
+        //session_page = &World::session_login;
+
+        // next session in 1-4 hours
+        nextSessionAt = new TimePoint(now + std::chrono::minutes(random(60,60*4)));
+    }
+}
+
+void World::deviseStrategy()
+{
+    // TODO
+}
+
+void World::onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    if (! response->isSucceed()) {
+
+        ERROR("Can't log into " + nick + "|" + world);
+        ERROR("Are you sure that this link is valid? " + loginLink);
+        session->ended = true;
+
+    } else {
+
+        session->loggingInPhase = 2;
+        std::cout << "Logged to: " << nick << "|" << world << "\n";
+        session->pause(3,6);
+
+        /*
+        std::vector<char> page = *(response->getResponseData());
+
+        std::cout << "Page contains of " << page.size() << " characters\n\n";
+        for (auto c: page) {
+            std::cout << c;
+        }
+        std::cout << "\n\n";
+
+        session_page = &World::session_overview;
+        */
+    }
+}
+
+/*
 void World::session_login()
 {
     if (! session->loggedIn)
@@ -103,28 +220,9 @@ void World::session_login()
         session->loggedIn = true;
     }
 }
+*/
 
-void World::onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
-{
-    if (! response->isSucceed()) {
-
-        ERROR("Can't log in");
-        session->ended = true;
-
-    } else {
-
-        std::vector<char> page = *(response->getResponseData());
-
-        std::cout << "Page contains of " << page.size() << " characters\n\n";
-        for (auto c: page) {
-            std::cout << c;
-        }
-        std::cout << "\n\n";
-
-        session_page = &World::session_overview;
-    }
-}
-
+/*
 void World::session_overview()
 {
     std::cout << "OVERVIEW of " << world << "\n";
@@ -133,6 +231,7 @@ void World::session_overview()
 
     if (1) session->ended = true;
 }
+*/
 
 cocos2d::Scene* World::getScene()
 {

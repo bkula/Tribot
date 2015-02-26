@@ -58,9 +58,36 @@ inline int createDirectory(std::string name)
 // dictionary
 // errors
 
-/** WARNING: if you use network...
+/* REMEMBER: if you use network...
 Note that if you environment is Android do not forget adding permissions on your app’s Manifest :
 <uses-permission android:name="android.permission.INTERNET"/>
 */
+
+///
+/// Tribal Wars' types
+///
+
+enum TWBuilding
+{
+    TW_BUILDING_HQ,
+    TW_BUILDING_FARM
+};
+enum TWUnit
+{
+    TW_UNIT_SPEAR,
+    TW_UNIT_SWORD,
+    TW_UNIT_AXE,
+    TW_UNIT_BOW,
+    TW_UNIT_SCOUT,
+    TW_UNIT_LC,
+    TW_UNIT_RAM,
+    TW_UNIT_CAT,
+    TW_UNIT_PALADIN,
+    TW_UNIT_NOBLE
+};
+//std::map<TWBuilding, std::string> TWBuildingName;
+//std::map<TWUnit, std::string> TWUnitName;
+typedef int* TWArmy; // int[12]
+typedef std::string TWCoordinates;
 
 #endif // __COMMON_H__
