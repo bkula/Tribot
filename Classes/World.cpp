@@ -19,35 +19,32 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
 , menuHidden(true)
 , runningFunc(NULL)
 {
-    cocos2d::FileUtils* FU =  cocos2d::FileUtils::getInstance();
-
-    // creating world directory if necessary
-    // and world file
-    if (! FU->isFileExist(path + "world.txt"))
-    {
-        createDirectory(path);
-
-        std::ofstream of(path + "world.txt");
-        if (! of.is_open()) std::cout << "ERROR: file " << path + "world.txt" << " can't be opened." << std::endl;
-        of.close();
-    }
-    // villages file
-    if (! FU->isFileExist(path + "villages.txt"))
-    {
-        //createDirectory(path);
-
-        std::ofstream of(path + "villages.txt");
-        if (! of.is_open()) std::cout << "ERROR: file " << path + "villages.txt" << " can't be opened." << std::endl;
-        of.close();
-    }
-
     functionalities.push_back(new Building());
     functionalities.push_back(new Farming());
-
     runningFunc = functionalities[0];
 
+    cocos2d::FileUtils* FU = cocos2d::FileUtils::getInstance();
+
+    auto open_file = [&](std::string file)
+    {
+        if (! FU->isFileExist(path + file))
+        {
+            createDirectory(path);
+
+            std::ofstream of(path + file);
+            if (! of.is_open()) std::cout << "ERROR: file " << path + file << " can't be opened." << std::endl;
+            of.close();
+        }
+    };
+
+    open_file("world.txt");
+    open_file("villages.txt");
+    open_file("farms.txt");
+
+    std::fstream file;
+
     // load villages
-    std::fstream file(path + "villages.txt");
+    file.open(path + "villages.txt");
     while (1)
     {
         std::string id;
@@ -83,6 +80,11 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
             of.close();
         }
     }
+    file.close();
+
+    // load farms
+    file.open(path + "farms.txt");
+    for (std::string farm; std::getline(file, farm); farms.push_back(Farm(farm))) {}
     file.close();
 }
 
@@ -429,15 +431,32 @@ void World::onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::netwo
             return std::stoi(result);
         };
 
-        v.buildings[TW_BUILDING_WOOD] = lvl("wood");
-        v.buildings[TW_BUILDING_STONE] = lvl("stone");
-        v.buildings[TW_BUILDING_IRON] = lvl("iron");
-        v.buildings[TW_BUILDING_STORAGE] = lvl("storage");
-        v.buildings[TW_BUILDING_FARM] = lvl("farm");
+        for (int i = 0; i < TW_BUILDING_SIZE; i++) {
+            v.buildings[i] = lvl(twBuildingName[i]);
+        }
 
         /// army
 
-        // TODO
+        found = 0;
+        auto bound = page.find("screen=train");
+        bound = page.find("screen=train", bound+1);
+        for (int i = 0; i < TW_UNIT_SIZE; i++)
+        {
+            found = page.find(twUnitName[i], found);
+            if (found == std::string::npos || found > bound) {
+                v.army[i] = 0;
+                found = 0;
+                continue;
+            }
+            std::string s = "<strong>";
+            found = page.find(s, found);
+            s = "";
+            for (int j = found + s.size(); 1; j++) {
+                if (page[j] == '<') break;
+                s += page[j];
+            }
+            v.army[i] = std::stoi(s);
+        }
 
         /* old
         /// building queue

@@ -109,7 +109,30 @@ enum TWUnit
 extern std::string twBuildingName[TW_BUILDING_SIZE];
 extern std::string twUnitName[TW_UNIT_SIZE];
 
-typedef int* TWArmy; // int[12]
+class TWArmy
+{
+public:
+
+    TWArmy()
+    {
+        for (int i = 0; i < 12; i++) {
+            units[i] = 0;
+        }
+    }
+
+    int& operator[](int i)
+    {
+        if (i < 0 || i >= 12) {
+            ERROR("Invalid argument given for TWArmy[]");
+            return units[0];
+        }
+        return units[i];
+    }
+
+private:
+
+    int units[12];
+};
 
 typedef std::string TWCoordinates;
 

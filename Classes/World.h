@@ -136,6 +136,20 @@ private:
     };
     std::vector<Village> villages;
 
+    class Farm
+    {
+    public:
+
+        Farm(std::string line_of_data)
+        {
+            if (line_of_data.size() != 6) ERROR("Incorrect size of farm data");
+            coords = line_of_data;
+        }
+
+        TWCoordinates coords;
+    };
+    std::vector<Farm> farms;
+
     class Session
     {
     public:
@@ -224,6 +238,7 @@ private:
     void onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
 
     // strategy functions
+    void printData();
     void buildEco();
     void farm();
 
