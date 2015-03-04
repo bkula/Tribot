@@ -288,7 +288,7 @@ void World::executeVillageActions(int v /*villageIndex*/)
         r->setResponseCallback( CC_CALLBACK_2(World::onActionRequestEnded, this));
         char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
         r->setUserData(&userData);
-        session->actionRequests.push(r);
+        session->actionRequests.push_back(r);
 
         std::cout << "Adding " << twBuildingName[b] << " to building queue\n";
     }
@@ -296,7 +296,8 @@ void World::executeVillageActions(int v /*villageIndex*/)
     /// ORDERS
     for (auto &o: session->villagesActions[v].order)
     {
-        //
+        // creating POST request
+        // callback is World::onGoToPlaceEnded
         std::cout << "Adding " << "" << " order\n";
     }
 
@@ -556,6 +557,28 @@ void World::onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::
     }
 
     session->villagePhase = 2; // for compatibility with old version
+
+    session->nextActionRequest();
+}
+
+void World::onGoToPlaceEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    // assert
+
+    // reading response
+    // push_front POST request
+    // callback is World::onSendArmyEnded
+
+    session->nextActionRequest();
+}
+
+void World::onSendArmyEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    // assert
+
+    // reading response
+    // push_front POST request
+    // callback is World::onActionRequestEnded
 
     session->nextActionRequest();
 }

@@ -187,14 +187,14 @@ private:
         int currentVillage;
         bool allVillagesReviewed;
         int villagePhase; // 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
-        std::queue<cocos2d::network::HttpRequest*> actionRequests;
+        std::list<cocos2d::network::HttpRequest*> actionRequests;
 
         void nextActionRequest()
         {
             if (! actionRequests.empty()) {
                 cocos2d::network::HttpClient::getInstance()->send(actionRequests.front());
                 actionRequests.front()->release();
-                actionRequests.pop();
+                actionRequests.pop_front();
                 pause(1,2);
             }
         }
@@ -236,6 +236,8 @@ private:
     void onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
     void onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
     void onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onGoToPlaceEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onSendArmyEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
 
     // strategy functions
     void printData();
