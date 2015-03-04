@@ -20,7 +20,8 @@ AppTribot::AppTribot()
 
     while (1)
     {
-        std::string nick, world, link;
+        std::string nick, world, market,
+        link;
         bool eof = false;
 
         #define GET(str) \
@@ -34,12 +35,13 @@ AppTribot::AppTribot()
         }
         GET(nick)
         GET(world)
+        GET(market)
         GET(link)
         #undef GET
 
         if (eof) break;
 
-        worlds.push_back(new World(path + nick + "|" + world + "/", nick, world, link));
+        worlds.push_back(new World(path + nick + "|" + world + "/", nick, world, market, link));
     }
     file.close();
 

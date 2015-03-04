@@ -3,10 +3,11 @@
 #include "Building.h"
 #include "Farming.h"
 
-World::World(std::string _path, std::string _nick, std::string _world, std::string _loginLink)
+World::World(std::string _path, std::string _nick, std::string _world, std::string _market, std::string _loginLink)
 : path(_path)
 , nick(_nick)
 , world(_world)
+, market(_market)
 , loginLink(_loginLink)
 , session(NULL)
 , nextSessionAt(new TimePoint(GET_TIME_NOW))
@@ -20,13 +21,23 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
 {
     cocos2d::FileUtils* FU =  cocos2d::FileUtils::getInstance();
 
-    // create world directory if necessary
+    // creating world directory if necessary
+    // and world file
     if (! FU->isFileExist(path + "world.txt"))
     {
         createDirectory(path);
 
         std::ofstream of(path + "world.txt");
         if (! of.is_open()) std::cout << "ERROR: file " << path + "world.txt" << " can't be opened." << std::endl;
+        of.close();
+    }
+    // villages file
+    if (! FU->isFileExist(path + "villages.txt"))
+    {
+        //createDirectory(path);
+
+        std::ofstream of(path + "villages.txt");
+        if (! of.is_open()) std::cout << "ERROR: file " << path + "villages.txt" << " can't be opened." << std::endl;
         of.close();
     }
 
@@ -36,7 +47,43 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
     runningFunc = functionalities[0];
 
     // load villages
-    villages.push_back(Village("56723"));
+    std::fstream file(path + "villages.txt");
+    while (1)
+    {
+        std::string id;
+        bool eof = false;
+
+        #define GET(str) \
+        if (eof) break; \
+        while (! eof) { \
+            if (std::getline(file, str)) { \
+                if (! str.empty()) break; /* ignore empty lines */ \
+            } else { \
+                eof = true; \
+            } \
+        }
+        GET(id)
+        #undef GET
+
+        if (eof) break;
+
+        villages.push_back(Village(path + "villages/" + id + "/", id));
+        // create village directory if necessary
+        if (! FU->isFileExist(path + "villages/" + id + "/village.txt"))
+        {
+            createDirectory(path + "villages");
+            createDirectory(path + "villages/" + id);
+
+            std::ofstream of(path + "villages/" + id + "/village.txt");
+            if (! of.is_open()) std::cout
+                << "ERROR: file "
+                << path + "/villages/" + id + "/village.txt"
+                << " can't be opened." << std::endl
+            ;
+            of.close();
+        }
+    }
+    file.close();
 }
 
 World::~World()
@@ -107,7 +154,7 @@ void World::sessionUpdate()
             switch (session->reviewPhase) {
 
             case P::REVIEW_PHASE_START:
-                std::cout << "Review phase started\n";
+                std::cout << "Review phase started.\n";
                 session->reviewPhase++;
                 break;
 
@@ -135,35 +182,59 @@ void World::sessionUpdate()
         // villages review
         else if (! session->allVillagesReviewed && session->currentVillage < villages.size())
         {
-            // TODO
-            session->currentVillage++;
+            if (session->villagePhase == 0) // start village overview
+            {
+                session->villagePhase = 1;
+                villageReview(&villages[session->currentVillage]);
+            }
+            else if (session->villagePhase == 2) // start HQ review
+            {
+                session->villagePhase = 3;
+                villageHQReview(&villages[session->currentVillage]);
+            }
+            else if (session->villagePhase == 4) // review completed
+            {
+                std::cout << "Village " << session->currentVillage << " review completed.\n";
+                session->currentVillage++;
+                session->villagePhase = 0;
+            }
         }
         // devising strategy
         else if (! session->allVillagesReviewed)
         {
             session->allVillagesReviewed = true;
             session->currentVillage = 0;
+            session->villagePhase = 0;
 
             deviseStrategy();
         }
         // and finally... playing (orders & expensions)
         else if (session->currentVillage < villages.size())
         {
-            // TODO
-            session->currentVillage++;
+            if (session->villagePhase == 0)
+            {
+                session->villagePhase = 1;
+                executeVillageActions(session->currentVillage);
+            }
+            else if (session->villagePhase == 2)
+            {
+                std::cout << "All actions of village " << session->currentVillage << " executed.\n";
+                session->currentVillage++;
+                session->villagePhase = 0;
+            }
         }
         // when there is nothing to do...
         else
         {
             session->ended = true;
-            std::cout << "Session ended normally\n";
+            std::cout << "Session ended normally.\n";
         }
 
     } else if (*nextSessionAt < now) { // create new session
 
         session = new Session(villages.size());
 
-        //session_page = &World::session_login;
+        /*old*///session_page = &World::session_login;
 
         // next session in 1-4 hours
         nextSessionAt = new TimePoint(now + std::chrono::minutes(random(60,60*4)));
@@ -173,13 +244,49 @@ void World::sessionUpdate()
 void World::deviseStrategy()
 {
     // TODO
+
+    std::cout << "Strategy devised ;)" << std::endl;
+}
+
+void World::villageReview(Village* v)
+{
+    // start overeview
+    auto request = new cocos2d::network::HttpRequest();
+    if (market != "pl") ERROR("Tribot nie wspiera światów nie polsko-języcznych"); // #ONLY_POLISH
+    request->setUrl(std::string("http://" + world + ".plemiona." + market + "/game.php?village=" + v->id + "&screen=overview").c_str());
+    request->setRequestType(cocos2d::network::HttpRequest::Type::GET);
+    request->setResponseCallback( CC_CALLBACK_2(World::onVillageViewed, this));
+    char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+    request->setUserData(&userData);
+    cocos2d::network::HttpClient::getInstance()->send(request);
+    request->release();
+}
+
+void World::villageHQReview(Village* v)
+{
+    // start HQ review
+    auto request = new cocos2d::network::HttpRequest();
+    if (market != "pl") ERROR("Tribot nie wspiera światów nie polsko-języcznych"); // #ONLY_POLISH
+    request->setUrl(std::string("http://" + world + ".plemiona." + market + "/game.php?village=" + v->id + "&screen=main").c_str());
+    request->setRequestType(cocos2d::network::HttpRequest::Type::GET);
+    request->setResponseCallback( CC_CALLBACK_2(World::onVillageHQViewed, this));
+    char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+    request->setUserData(&userData);
+    cocos2d::network::HttpClient::getInstance()->send(request);
+    request->release();
+}
+
+void World::executeVillageActions(int v /*villageIndex*/)
+{
+    // TODO
+    session->villagePhase = 2;
 }
 
 void World::onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
 {
     if (! response->isSucceed()) {
 
-        ERROR("Can't log into " + nick + "|" + world);
+        ERROR("Can't log in to " + nick + "|" + world);
         ERROR("Are you sure that this link is valid? " + loginLink);
         session->ended = true;
 
@@ -201,6 +308,168 @@ void World::onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::H
         session_page = &World::session_overview;
         */
     }
+}
+
+void World::onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    if (session->villagePhase != 1) ERROR("session->villagePhase != 1");
+
+    if (! response->isSucceed()) {
+
+        ERROR("Can't review village" + session->currentVillage);
+        ERROR("Are you sure that this village ID is valid? " + villages[session->currentVillage].id);
+
+    } else {
+
+        // reading the page
+        std::string page;
+        std::vector<char> resp = *(response->getResponseData());
+        for (auto c: resp) {
+            page += c;
+        }
+
+        Village& v = villages[session->currentVillage];
+
+        /*********************************
+        * Reading data from village page *
+        *********************************/
+
+        // zmienne pomocnicze
+        std::size_t found;
+
+        /// coordinates
+
+        std::string coord = "coord\":\"";
+        found = page.find(coord);
+        if (found == std::string::npos) ERROR("Nie znaleziono coord");
+
+        for (int i = 0; i < 7; i++) {
+            if (i != 3) v.coordinates += page[found + coord.size() + i];
+        }
+
+        /// resources
+
+        auto res = [&](std::string res_name)->int{
+            std::string s = "\"" + res_name + "\":";
+            if (res_name == "pop") s += "\"";
+            found = page.find(s);
+            if (found == std::string::npos) {
+                ERROR("Nie znaleziono " + res_name);
+                return -1;
+            }
+            std::string result;
+            for (int i = 0; 1; i++) {
+                if (page[found + s.size() + i] == ',' || page[found + s.size() + i] == '"') break;
+                result += page[found + s.size() + i];
+            }
+            return std::stoi(result);
+        };
+
+        v.resources = TWCost(res("wood"), res("stone"), res("iron"), res("pop"));
+
+        /// buildings' levels
+
+        auto lvl = [&](std::string name)->int{
+            std::string s = "\"" + name + "\":\"";
+            found = page.find(s, page.find("\"buildings\":{\"village\":\"" + v.id + "\","));
+            if (found == std::string::npos) {
+                ERROR("Nie znaleziono " + name);
+                return -1;
+            }
+            std::string result;
+            for (int i = 0; 1; i++) {
+                if (page[found + s.size() + i] == '"') break;
+                result += page[found + s.size() + i];
+            }
+            return std::stoi(result);
+        };
+
+        v.buildings[TW_BUILDING_WOOD] = lvl("wood");
+        v.buildings[TW_BUILDING_STONE] = lvl("stone");
+        v.buildings[TW_BUILDING_IRON] = lvl("iron");
+        v.buildings[TW_BUILDING_STORAGE] = lvl("storage");
+        v.buildings[TW_BUILDING_FARM] = lvl("farm");
+
+        /// army
+
+        // TODO
+
+        /* old
+        /// building queue
+        found = page.find("gif\" alt=\"Ratusz\""); // #ONLY_POLISH
+        if (found == std::string::npos) v.buildingsInQueue = 0;
+        else v.buildingsInQueue = 2; // non-zero
+        */
+
+        // at the end
+        session->pause(1,4);
+    }
+
+    session->villagePhase = 2;
+}
+
+void World::onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    if (session->villagePhase != 3) ERROR("session->villagePhase != 3");
+
+    if (! response->isSucceed()) {
+
+        ERROR("Can't review HQ" + session->currentVillage);
+        ERROR("Are you sure that this village ID is valid? " + villages[session->currentVillage].id);
+
+    } else {
+
+        // reading the page
+        std::string page;
+        std::vector<char> resp = *(response->getResponseData());
+        for (auto c: resp) {
+            page += c;
+        }
+
+        Village& v = villages[session->currentVillage];
+
+        /****************************
+        * Reading data from HQ page *
+        ****************************/
+        std::size_t found;
+
+        /// building queue
+
+        std::string today_at = "dzisiaj o"; // #ONLY_POLISH
+        v.buildingsInQueue = 0;
+        found = 0;
+        while (1) {
+            found = page.find(today_at, found + today_at.size());
+            if (found == std::string::npos) break;
+            v.buildingsInQueue++;
+        }
+
+        /// buildings' costs
+
+        // TODO
+
+        // at the end
+        session->pause(1,3);
+    }
+
+    session->villagePhase = 4;
+}
+
+void World::onVillageActionsExecuted(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
+{
+    /*
+    if (! response->isSucceed()) {
+
+        ERROR("Can't review village" + session->currentVillage);
+        ERROR("Are you sure that this village id is valid? " + villages[session->currentVillage].id);
+        session->villagePhase = 2;
+
+    } else {
+
+        session->villagePhase = 2;
+        session->pause(1,4);
+    }
+    */
 }
 
 /*

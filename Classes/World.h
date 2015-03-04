@@ -9,7 +9,7 @@ class World
 {
 public:
 
-    World(std::string _path, std::string _nick, std::string _world, std::string _loginLink);
+    World(std::string _path, std::string _nick, std::string _world, std::string _market, std::string _loginLink);
     ~World();
 
     cocos2d::Scene* getScene();
@@ -25,19 +25,112 @@ private:
     const std::string path; // path to world's directory
     const std::string nick;
     const std::string world;
+    const std::string market;
     const std::string loginLink;
 
     class Village
     {
     public:
 
-        Village(std::string _id)
+        #define USE_MEMORY_DUMPS 0
+        #define ALLOW_PARTIAL_MEMORY_DUMPS 0
+
+        Village(std::string _path, std::string _id)
         : id(_id)
+        , path(_path)
         {
+            #if USE_MEMORY_DUMPS
+            // load data from file
+
+            cocos2d::FileUtils* FU =  cocos2d::FileUtils::getInstance();
+
+            if (! FU->isFileExist(path + "village.txt"))
+            {
+                std::ofstream of(path + "village.txt");
+                if (! of.is_open()) std::cout << "ERROR: file " << path + "village.txt" << " can't be opened." << std::endl;
+                of.close();
+            }
+
+            std::fstream file(path + "village.txt");
+            std::string data;
+
+            // zapisywanie pliku do data
+            while (1)
+            {
+                char c;
+                file.get(c);
+                if (file.eof()) break;
+                data += c;
+            }
+
+            // if file has incorrect size
+
+            if (
+                #if ALLOW_PARTIAL_MEMORY_DUMPS
+                0
+                #else
+                sizeof(Village) > data.size()*sizeof(char)
+                #endif // ALLOW_PARTIAL_MEMORY_DUMPS
+            ) {
+
+                ERROR("File " + path + "village.txt has incorrect size");
+                // DEBUG std::cout << "Info: sizeof(Village) = " << sizeof(Village) << ", data.size()*sizeof(char) = " << data.size()*sizeof(char) << "\n";
+
+            } else {
+
+                /// TEN BLOK MOŻE POWODOWAĆ SEGMENTATION FAULT
+
+                // create village from file
+
+                #if ALLOW_PARTIAL_MEMORY_DUMPS
+                memcpy(this, data.c_str(), std::max(sizeof(Village), data.size()*sizeof(char)));
+                #else
+                memcpy(this, data.c_str(), sizeof(Village));
+                #endif // ALLOW_PARTIAL_MEMORY_DUMPS
+
+                if (path != _path) ERROR("Podczas inicjalizacji wioski (path != _path)");
+                if (id != _id) ERROR("Podczas inicjalizacji wioski (id != _id)");
+                path = _path, id = _id; // for security
+            }
+
+            file.close();
+            #endif // USE_MEMORY_DUMPS
         }
 
-        const std::string id;
+        ~Village()
+        {
+            #if USE_MEMORY_DUMPS
+            // save data in file
+            std::fstream file(path + "village.txt", std::ios::in | std::ios::out | std::ios::trunc);
+            if (! file.is_open()) {
+                std::cout << "ERROR: file " << path + "village.txt" << " can't be opened." << std::endl;
+            }
+            size_t s = sizeof(Village)/sizeof(char) + sizeof(char)*2;
+            char data[s];
+            #if ALLOW_PARTIAL_MEMORY_DUMPS
+            memcpy(data, this, sizeof(this));
+            #else
+            memcpy(data, this, sizeof(Village));
+            #endif // ALLOW_PARTIAL_MEMORY_DUMPS
+            std::string str(data, s);
+            //DEBUG while (str.size() < sizeof(Village)/sizeof(char) + sizeof(char)*2) str += "0";
+            file << str;
+            file.close();
+            //DEBUG std::cout << "DEST: " << str.size() << " " << sizeof(this) << " " << s << "\n";
+            #endif // USE_MEMORY_DUMPS
+        }
+
+        std::string path;
+        std::string id;
+
+        // data
         TWCoordinates coordinates;
+        int buildings[TW_BUILDING_MAX];
+        int army[TW_UNIT_MAX];
+        TWCost resources;
+        int storage_max;
+        int pop_max;
+        int buildingsInQueue;
     };
     std::vector<Village> villages;
 
@@ -53,6 +146,7 @@ private:
         , startegyDevised(false)
         , currentVillage(0)
         , allVillagesReviewed(false)
+        , villagePhase(0)
         {
             villagesActions.reserve(villagesNumber);
         }
@@ -73,17 +167,11 @@ private:
         bool startegyDevised;
         int currentVillage;
         bool allVillagesReviewed;
+        int villagePhase; // 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
 
         struct Actions // orders & expensions for each village
         {
-            struct Order
-            {
-                TWArmy army;
-                TWCoordinates target;
-                bool isAttack;
-            };
-
-            std::vector<Order> order;
+            std::vector<TWOrder> order;
             std::vector<TWBuilding> build;
             std::vector<TWArmy> recruit;
             std::vector<TWUnit> tech;
@@ -107,11 +195,17 @@ private:
 
     void sessionUpdate();
     void deviseStrategy();
+    void villageReview(Village* v);
+    void villageHQReview(Village* v);
+    void executeVillageActions(int v /*villageIndex*/);
 
     TimePoint* nextSessionAt; // NULL - no incoming session
 
     // http callbacks
     void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onVillageActionsExecuted(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
 
     /*
     void (World::*session_page)(); // pointer to current session function
