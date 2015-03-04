@@ -17,6 +17,9 @@
 #include "cmath"
 #include "chrono"
 #include "fstream"
+#include "queue"
+
+void initGlobals();
 
 // global defines & constants
 // prefix "g" means "global"
@@ -82,8 +85,10 @@ enum TWBuilding // TODO
     TW_BUILDING_FARM,
     TW_BUILDING_STORAGE,
     TW_BUILDING_HIDE,
-    TW_BUILDING_MAX
+    // ...
+    TW_BUILDING_SIZE
 };
+
 enum TWUnit
 {
     TW_UNIT_SPEAR,
@@ -98,18 +103,23 @@ enum TWUnit
     TW_UNIT_CAT,
     TW_UNIT_PALADIN,
     TW_UNIT_NOBLE,
-    TW_UNIT_MAX
+    TW_UNIT_SIZE
 };
-//std::map<TWBuilding, std::string> TWBuildingName;
-//std::map<TWUnit, std::string> TWUnitName;
+
+extern std::string twBuildingName[TW_BUILDING_SIZE];
+extern std::string twUnitName[TW_UNIT_SIZE];
+
 typedef int* TWArmy; // int[12]
+
 typedef std::string TWCoordinates;
+
 struct TWOrder
 {
     TWArmy army;
     TWCoordinates target;
     bool isAttack;
 };
+
 struct TWCost
 {
     int wood;
@@ -129,7 +139,19 @@ struct TWCost
         }
     }
 
-    TWCost(int w = 0, int s = 0, int i = 0, int p = 0)
+    int operator[](int i) const
+    {
+        if (i == 0) return wood;
+        else if (i == 1) return stone;
+        else if (i == 2) return iron;
+        else if (i == 3) return pop;
+        else {
+            ERROR("Nieprawidłowy index TWCost");
+            return wood;
+        }
+    }
+
+    explicit TWCost(int w = 0, int s = 0, int i = 0, int p = 0)
     : wood(w), stone(s), iron(i), pop(p)
     {
     }
@@ -137,6 +159,83 @@ struct TWCost
     explicit TWCost(int src[4])
     : wood(src[0]), stone(src[1]), iron(src[2]), pop(src[3])
     {
+    }
+
+    TWCost& operator=(const TWCost &c) {
+
+        if (this == &c) return *this;
+
+        for (int i = 0; i < 4; i++) {
+            (*this)[i] = c[i];
+        }
+
+        return *this;
+    }
+
+    friend TWCost operator+(const TWCost& a, const TWCost& b)
+    {
+        TWCost res;
+        for (int i = 0; i < 4; i++) {
+            res[i] = a[i] + b[i];
+        }
+        return res;
+    }
+
+    friend TWCost operator-(const TWCost& a, const TWCost& b)
+    {
+        TWCost res;
+        for (int i = 0; i < 4; i++) {
+            res[i] = a[i] - b[i];
+        }
+        return res;
+    }
+
+    TWCost& operator+=(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            (*this)[i] = (*this)[i] + c[i];
+        }
+        return *this;
+    }
+
+    TWCost& operator-=(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            (*this)[i] = (*this)[i] - c[i];
+        }
+        return *this;
+    }
+
+    bool operator<(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            if (!((*this)[i] < c[i])) return false;
+        }
+        return true;
+    }
+
+    bool operator>(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            if (!((*this)[i] > c[i])) return false;
+        }
+        return true;
+    }
+
+    bool operator<=(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            if (!((*this)[i] <= c[i])) return false;
+        }
+        return true;
+    }
+
+    bool operator>=(const TWCost& c)
+    {
+        for (int i = 0; i < 4; i++) {
+            if (!((*this)[i] >= c[i])) return false;
+        }
+        return true;
     }
 };
 

@@ -122,6 +122,7 @@ set(GAME_SRC
   Classes/Building.cpp
   Classes/Farming.cpp
   Classes/GameAction.cpp
+  Classes/strategy.cpp
   ${PLATFORM_SPECIFIC_SRC}
 )
 

@@ -125,12 +125,14 @@ private:
 
         // data
         TWCoordinates coordinates;
-        int buildings[TW_BUILDING_MAX];
-        int army[TW_UNIT_MAX];
+        int buildings[TW_BUILDING_SIZE];
+        int army[TW_UNIT_SIZE];
         TWCost resources;
         int storage_max;
         int pop_max;
         int buildingsInQueue;
+        TWCost buildingsCosts[TW_BUILDING_SIZE];
+        std::string h_value;
     };
     std::vector<Village> villages;
 
@@ -148,7 +150,10 @@ private:
         , allVillagesReviewed(false)
         , villagePhase(0)
         {
-            villagesActions.reserve(villagesNumber);
+            for (int i = 0; i < villagesNumber; i++)
+            {
+                villagesActions.push_back(Actions());
+            }
         }
 
         bool ended;
@@ -168,6 +173,17 @@ private:
         int currentVillage;
         bool allVillagesReviewed;
         int villagePhase; // 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
+        std::queue<cocos2d::network::HttpRequest*> actionRequests;
+
+        void nextActionRequest()
+        {
+            if (! actionRequests.empty()) {
+                cocos2d::network::HttpClient::getInstance()->send(actionRequests.front());
+                actionRequests.front()->release();
+                actionRequests.pop();
+                pause(1,2);
+            }
+        }
 
         struct Actions // orders & expensions for each village
         {
@@ -199,13 +215,17 @@ private:
     void villageHQReview(Village* v);
     void executeVillageActions(int v /*villageIndex*/);
 
-    TimePoint* nextSessionAt; // NULL - no incoming session
+    TimePoint nextSessionAt;
 
     // http callbacks
     void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
     void onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
     void onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onVillageActionsExecuted(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    void onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+
+    // strategy functions
+    void buildEco();
+    void farm();
 
     /*
     void (World::*session_page)(); // pointer to current session function

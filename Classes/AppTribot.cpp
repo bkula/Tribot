@@ -20,8 +20,7 @@ AppTribot::AppTribot()
 
     while (1)
     {
-        std::string nick, world, market,
-        link;
+        std::string nick, world, market, link;
         bool eof = false;
 
         #define GET(str) \
@@ -49,6 +48,8 @@ AppTribot::AppTribot()
     cocos2d::network::HttpClient::getInstance()->enableCookies(std::string(path + "cookies.txt").c_str());
     cocos2d::network::HttpClient::getInstance()->setTimeoutForConnect(10);
     cocos2d::network::HttpClient::getInstance()->setTimeoutForRead(10);
+
+    initGlobals();
 }
 
 AppTribot::~AppTribot()
