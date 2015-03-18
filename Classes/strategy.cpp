@@ -19,16 +19,23 @@ void World::printData()
     /// farms
     cout << farms.size() << " farms: ";
     for (int i = 0; i < farms.size(); i++) {
-        cout << farms[i].coords << " ";
+        cout << std::string(farms[i].coords) << " ";
     }
     cout << "\n";
 
     for (int v = 0; v < villages.size(); v++)
     {
-        cout << "Village "<< v << " data:\n";
+        cout << "\nVillage "<< v << " data:\n";
+
+        cout << "Buildings: ";
+        for (int i = 0; i < TW_BUILDING_SIZE; i++)
+        {
+            cout << villages[v].buildings[i] << " ";
+        }
+        cout << endl;
 
         cout << "Army: ";
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < TW_UNIT_SIZE; i++) {
             cout << villages[v].army[i] << " ";
         }
         cout << endl;
@@ -39,7 +46,22 @@ void World::printData()
 
 void World::farm()
 {
-    // FIRST
+    if (! farms.empty())
+    {
+        for (int i = 0; i < villages.size(); i++)
+        {
+            if (villages[i].army[0] == 0) continue;
+
+            TWOrder o;
+            o.isAttack = true;
+            o.target = farms[0].coords;
+            TWArmy a;
+            a[0] = 1;
+            o.army = a;
+
+            session->villagesActions[i].order.push_back(o);
+        }
+    }
 }
 
 void World::buildEco()

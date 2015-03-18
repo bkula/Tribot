@@ -11,7 +11,7 @@ World::World(std::string _path, std::string _nick, std::string _world, std::stri
 , loginLink(_loginLink)
 , session(NULL)
 , nextSessionAt(GET_TIME_NOW)
-//, session_page(NULL)
+/*old*///, session_page(NULL)
 , scene(NULL)
 , menu(NULL)
 , shade(NULL)
@@ -216,6 +216,7 @@ void World::sessionUpdate()
             if (session->villagePhase == 0)
             {
                 session->villagePhase = 1;
+                session->currentOrder = 0;
                 executeVillageActions(session->currentVillage);
             }
             /*old*/// else if (session->villagePhase == 2)
@@ -231,6 +232,9 @@ void World::sessionUpdate()
         {
             session->ended = true;
             std::cout << "Session ended normally.\n";
+
+            std::time_t t = std::chrono::system_clock::to_time_t(nextSessionAt);
+            std::cout << "Next session at: " << std::ctime(&t);
         }
 
     } else if (nextSessionAt < now) { // create new session
@@ -296,9 +300,16 @@ void World::executeVillageActions(int v /*villageIndex*/)
     /// ORDERS
     for (auto &o: session->villagesActions[v].order)
     {
-        // creating POST request
-        // callback is World::onGoToPlaceEnded
-        std::cout << "Adding " << "" << " order\n";
+        auto r = new cocos2d::network::HttpRequest();
+        if (market != "pl") ERROR("Tribot nie wspiera światów nie polsko-języcznych"); // #ONLY_POLISH
+        r->setUrl(std::string("http://"+world+".plemiona."+market+"/game.php?village="+villages[v].id+"&screen=place").c_str());
+        r->setRequestType(cocos2d::network::HttpRequest::Type::GET);
+        r->setResponseCallback( CC_CALLBACK_2(World::onGoToPlaceEnded, this));
+        char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+        r->setUserData(&userData);
+        session->actionRequests.push_back(r);
+
+        std::cout << "Adding " << (o.isAttack ? "attack" : "help") << " order\n";
     }
 
     /// RECRUIT
@@ -312,7 +323,7 @@ void World::executeVillageActions(int v /*villageIndex*/)
     for (auto &t: session->villagesActions[v].tech)
     {
         //
-        std::cout << "Adding " << "" << " smith queue\n";
+        std::cout << "Adding " << "" << " to tech queue\n";
     }
 
     // must be called!
@@ -380,9 +391,11 @@ void World::onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::netwo
         found = page.find(coord);
         if (found == std::string::npos) ERROR("Nie znaleziono coord");
 
+        coord = "";
         for (int i = 0; i < 7; i++) {
-            if (i != 3) v.coordinates += page[found + coord.size() + i];
+            if (i != 3) coord += page[found + coord.size() + i];
         }
+        v.coordinates = coord;
 
         /// h_value
 
@@ -443,7 +456,7 @@ void World::onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::netwo
         bound = page.find("screen=train", bound+1);
         for (int i = 0; i < TW_UNIT_SIZE; i++)
         {
-            found = page.find(twUnitName[i], found);
+            found = page.find("unit_" + twUnitName[i], found);
             if (found == std::string::npos || found > bound) {
                 v.army[i] = 0;
                 found = 0;
@@ -451,12 +464,12 @@ void World::onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::netwo
             }
             std::string s = "<strong>";
             found = page.find(s, found);
-            s = "";
+            std::string result;
             for (int j = found + s.size(); 1; j++) {
                 if (page[j] == '<') break;
-                s += page[j];
+                result += page[j];
             }
-            v.army[i] = std::stoi(s);
+            v.army[i] = std::stoi(result);
         }
 
         /* old
@@ -536,6 +549,7 @@ void World::onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::net
             }
         };
 
+        // #ONLY_POLISH
         cost("Ratusz", TW_BUILDING_HQ);
         cost("Tartak", TW_BUILDING_WOOD);
         cost("Cegielnia", TW_BUILDING_STONE);
@@ -563,22 +577,154 @@ void World::onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::
 
 void World::onGoToPlaceEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
 {
-    // assert
+    if (! response->isSucceed()) {
+        ERROR("Invalid response for village " + std::to_string(session->currentVillage) + " go to the place request");
+    }
 
-    // reading response
-    // push_front POST request
-    // callback is World::onSendArmyEnded
+    /*TODO*/// add more asserts
+
+    /// reading the response
+
+    std::string page;
+    std::vector<char> resp = *(response->getResponseData());
+    for (auto c: resp) {
+        page += c;
+    }
+
+    std::size_t found;
+    std::string s, codeName, codeValue;
+
+    s = "<input type=\"hidden\" name=\"";
+    found = page.find(s);
+    for (int i = found + s.size(); 1; i++) {
+        if (page[i] == '"') break;
+        codeName += page[i];
+    }
+
+    s = " value=\"";
+    found = page.find(s, found);
+    for (int i = found + s.size(); 1; i++) {
+        if (page[i] == '"') break;
+        codeValue += page[i];
+    }
+
+    /// creating POST request (sending army)
+
+    TWOrder order = session->villagesActions[session->currentVillage].order[session->currentOrder];
+    session->currentOrder++;
+
+    std::stringstream postData;
+    postData << codeName << "=" << codeValue;
+    postData << "&template_id=";
+    for (int i = 0; i < TW_UNIT_SIZE; i++) {
+        postData << "&" << twUnitName[i] << "=" << order.army[i];
+    }
+    postData << "&x=" << order.target.x();
+    postData << "&y=" << order.target.y();
+    postData << "&target_type=coord";
+    postData << "&input=" << order.target.x() << "%7C" << order.target.y();
+    postData << "&attack=" << (order.isAttack ? "Napad" : "Wsparcie"); // #ONLY_POLISH
+
+    std::cout << "Sending POST: " << postData.str() << std::endl;
+
+    auto r = new cocos2d::network::HttpRequest();
+    if (market != "pl") ERROR("Tribot nie wspiera światów nie polsko-języcznych"); // #ONLY_POLISH
+    r->setUrl(
+        std::string("http://"+world+".plemiona."+market+"/game.php?village="
+        +villages[session->currentVillage].id+"&try=confirm&screen=place").c_str()
+    );
+    r->setRequestType(cocos2d::network::HttpRequest::Type::POST);
+    r->setRequestData(postData.str().c_str(), strlen(postData.str().c_str()));
+    r->setResponseCallback(CC_CALLBACK_2(World::onSendArmyEnded, this));
+    char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+    r->setUserData(&userData);
+    session->actionRequests.push_front(r); // must be at front of the queue to be executed first
 
     session->nextActionRequest();
 }
 
 void World::onSendArmyEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response)
 {
-    // assert
+    if (! response->isSucceed()) {
+        ERROR("Invalid response for village " + std::to_string(session->currentVillage) + " go send army request");
+    }
 
-    // reading response
-    // push_front POST request
-    // callback is World::onActionRequestEnded
+    /// reading data from page
+
+    std::string page;
+    std::vector<char> resp = *(response->getResponseData());
+    for (auto c: resp) {
+        page += c;
+    }
+
+    std::size_t found = 0;
+    std::string s;
+    std::string attack = "attack", ch = "ch", x = "x", y = "y", action_id = "action_id"; // post data
+    TWArmy army;
+
+    auto read = [&](std::string& name) {
+        s = "<input type=\"hidden\" name=\"" + name + "\" value=\"";
+        name = "";
+        found = page.find(s, found);
+        if (found == std::string::npos) ERROR("npos 1");
+        for (int i = found + s.size(); 1; i++) {
+            if (page[i] == '"') break;
+            name += page[i];
+        }
+    };
+
+    read(attack);
+    read(ch);
+    read(x);
+    read(y);
+    read(action_id);
+
+    for (int i = 0; i < TW_UNIT_SIZE; i++) {
+        s = "<input type=\"hidden\" name=\"" + twUnitName[i] + "\" value=\"";
+        found = page.find(s, found);
+        if (found == std::string::npos) ERROR("npos 2");
+        std::string unitCount;
+        for (int j = found + s.size(); 1; j++) {
+            if (page[j] == '"') break;
+            unitCount += page[j];
+        }
+        army[i] = std::stoi(unitCount);
+    }
+
+    std::string csrf;
+    s = "var csrf_token = '";
+    found = page.find(s);
+    for (int i = found + s.size(); 1; i++) {
+        if (page[i] == '\'') break;
+        csrf += page[i];
+    }
+
+    /// creating POST request
+
+    std::stringstream postData;
+    postData << "attack=" << attack;
+    postData << "&ch=" << ch;
+    postData << "&x=" << x;
+    postData << "&y=" << y;
+    postData << "&action_id=" << action_id;
+    for (int i = 0; i < TW_UNIT_SIZE; i++) {
+        postData << "&" << twUnitName[i] << "=" << army[i];
+    }
+
+    std::cout << "Sending POST: " << postData.str() << std::endl;
+
+    auto r = new cocos2d::network::HttpRequest();
+    if (market != "pl") ERROR("Tribot nie wspiera światów nie polsko-języcznych"); // #ONLY_POLISH
+    r->setUrl(
+        std::string("http://"+world+".plemiona."+market+"/game.php?village="
+        +villages[session->currentVillage].id+"&action=command&h="+csrf+"&screen=place").c_str()
+    );
+    r->setRequestType(cocos2d::network::HttpRequest::Type::POST);
+    r->setRequestData(postData.str().c_str(), strlen(postData.str().c_str()));
+    r->setResponseCallback( CC_CALLBACK_2(World::onActionRequestEnded, this));
+    char* userData = "Mozilla/5.0 (X11; U; Linux i686; pl; rv:1.8.0.3) Gecko/20060426 Firefox/1.5.0.3";
+    r->setUserData(&userData);
+    session->actionRequests.push_front(r); // must be at front of the queue to be executed first
 
     session->nextActionRequest();
 }

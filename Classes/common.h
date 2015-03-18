@@ -135,7 +135,63 @@ private:
     int units[12];
 };
 
-typedef std::string TWCoordinates;
+struct TWCoordinates
+{
+public:
+
+    TWCoordinates()
+    {
+    }
+
+    TWCoordinates(std::string _six)
+    {
+        if (_six.size() == 7) {
+            _six.erase(3);
+        } else if (_six.size() != 6) {
+            ERROR("Invalid argument given for TWCoordinates(string): " + _six);
+        }
+        six = _six;
+    }
+
+    TWCoordinates(int x, int y)
+    {
+        std::string sx, sy;
+        sx = std::to_string(x), sy = std::to_string(y);
+        if (sx.size() != 3 || sy.size() != 3) {
+            ERROR("Invalid args given for TWCoordinates(int,int): (" + sx + "," + sy + ")");
+        }
+        six = sx + sy;
+    }
+
+    TWCoordinates& operator=(const std::string &str) {
+
+        *this = TWCoordinates(str);
+
+        return *this;
+    }
+
+    operator std::string() const
+    {
+        if (six.size() != 6) {
+            ERROR("Uninitializet TWCoordinates");
+        }
+        return six;
+    }
+
+    int x() const
+    {
+        return std::stoi(six.substr(0, 3));
+    }
+
+    int y() const
+    {
+        return std::stoi(six.substr(3, 3));
+    }
+
+private:
+
+    std::string six; // string contains six numbers
+};
 
 struct TWOrder
 {

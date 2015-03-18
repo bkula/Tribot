@@ -121,7 +121,6 @@ set(GAME_SRC
   Classes/common.cpp
   Classes/Building.cpp
   Classes/Farming.cpp
-  Classes/GameAction.cpp
   Classes/strategy.cpp
   ${PLATFORM_SPECIFIC_SRC}
 )
@@ -134,7 +133,6 @@ set(GAME_HEADERS
   Classes/common.h
   Classes/Building.h
   Classes/Farming.h
-  Classes/GameAction.h
   ${PLATFORM_SPECIFIC_HEADERS}
 )
 

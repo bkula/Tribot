@@ -126,13 +126,19 @@ private:
         // data
         TWCoordinates coordinates;
         int buildings[TW_BUILDING_SIZE];
-        int army[TW_UNIT_SIZE];
-        TWCost resources;
-        int storage_max;
-        int pop_max;
         int buildingsInQueue;
         TWCost buildingsCosts[TW_BUILDING_SIZE];
+        int army[TW_UNIT_SIZE];
+        TWCost resources;
         std::string h_value;
+
+        // TODO
+        bool isTech[TW_UNIT_SIZE];
+        std::vector<TWCoordinates> attackOrders;
+        std::vector<TWCoordinates> returnOrders;
+        int warehouseLimit;
+        int popUsed;
+        int popLimit;
     };
     std::vector<Village> villages;
 
@@ -140,10 +146,9 @@ private:
     {
     public:
 
-        Farm(std::string line_of_data)
+        Farm(std::string _coords)
+        : coords(_coords)
         {
-            if (line_of_data.size() != 6) ERROR("Incorrect size of farm data");
-            coords = line_of_data;
         }
 
         TWCoordinates coords;
@@ -163,6 +168,7 @@ private:
         , currentVillage(0)
         , allVillagesReviewed(false)
         , villagePhase(0)
+        , currentOrder(0)
         {
             for (int i = 0; i < villagesNumber; i++)
             {
@@ -188,6 +194,7 @@ private:
         bool allVillagesReviewed;
         int villagePhase; // 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
         std::list<cocos2d::network::HttpRequest*> actionRequests;
+        int currentOrder;
 
         void nextActionRequest()
         {
