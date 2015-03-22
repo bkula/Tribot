@@ -27,6 +27,11 @@ void World::printData()
     {
         cout << "\nVillage "<< v << " data:\n";
 
+        cout << "Resources: ";
+        for (int  i = 0; i < 3; i++) cout << villages[v].resources[i] << " ";
+        cout << "Storage: " << villages[v].storageLimit << endl;
+        cout << "Population: " << villages[v].resources[3] << "/" << villages[v].populationLimit << endl;
+
         cout << "Buildings: ";
         for (int i = 0; i < TW_BUILDING_SIZE; i++)
         {
@@ -37,6 +42,24 @@ void World::printData()
         cout << "Army: ";
         for (int i = 0; i < TW_UNIT_SIZE; i++) {
             cout << villages[v].army[i] << " ";
+        }
+        cout << endl;
+
+        cout << "Technology: ";
+        for (int i = 0; i < TW_UNIT_SIZE; i++) {
+            cout << villages[v].isTech[i] << " ";
+        }
+        cout << endl;
+
+        cout << "Attacks: ";
+        for (auto c: villages[v].attackOrders) {
+            cout << c.str() << " ";
+        }
+        cout << endl;
+
+        cout << "Returns: ";
+        for (auto c: villages[v].returnOrders) {
+            cout << c.str() << " ";
         }
         cout << endl;
     }

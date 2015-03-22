@@ -12,6 +12,9 @@ void initGlobals()
 {
     for (int i = 0; i < TW_BUILDING_SIZE; i++) twBuildingName[i] = "NO-NAME";
     twBuildingName[TW_BUILDING_HQ] = "main";
+    twBuildingName[TW_BUILDING_BARRACKS] = "barracks";
+    twBuildingName[TW_BUILDING_ACADEMY] = "snob";
+    twBuildingName[TW_BUILDING_SMITH] = "smith";
     twBuildingName[TW_BUILDING_STATUE] = "statue";
     twBuildingName[TW_BUILDING_MARKET] = "market";
     twBuildingName[TW_BUILDING_WOOD] = "wood";
@@ -35,5 +38,4 @@ void initGlobals()
     twUnitName[TW_UNIT_CAT] = "catapult";
     twUnitName[TW_UNIT_PALADIN] = "knight";
     twUnitName[TW_UNIT_NOBLE] = "snob";
-    // ... TODO
 }

@@ -1,9 +1,16 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-/** HASHTAGS LIST:
-* #ONLY_POLISH
+/// HASHTAGS LIST:
+/*
+#ONLY_POLISH
 */
+
+/// Comments' types:
+/*old*/
+/*TODO*/
+/*info*/
+/*return*/
 
 #include "cocos2d.h"
 #include "ui/CocosGUI.h"
@@ -71,13 +78,32 @@ Note that if you environment is Android do not forget adding permissions on your
 <uses-permission android:name="android.permission.INTERNET"/>
 */
 
+class PageReader // TODO
+{
+    PageReader(std::vector<char> source)
+    {
+        // TODO
+    }
+
+    int readInt();
+    std::string readStr();
+
+    struct Location
+    {
+        // list
+    };
+};
+
 ///
 /// Tribal Wars' types
 ///
 
-enum TWBuilding // TODO
+enum TWBuilding
 {
     TW_BUILDING_HQ,
+    TW_BUILDING_BARRACKS,
+    TW_BUILDING_ACADEMY,
+    TW_BUILDING_SMITH,
     TW_BUILDING_STATUE,
     TW_BUILDING_MARKET,
     TW_BUILDING_WOOD,
@@ -86,7 +112,7 @@ enum TWBuilding // TODO
     TW_BUILDING_FARM,
     TW_BUILDING_STORAGE,
     TW_BUILDING_HIDE,
-    // ...
+    // ... TODO
     TW_BUILDING_SIZE
 };
 
@@ -186,6 +212,11 @@ public:
     int y() const
     {
         return std::stoi(six.substr(3, 3));
+    }
+
+    std::string str() const
+    {
+        return six;
     }
 
 private:

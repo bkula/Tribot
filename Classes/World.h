@@ -123,7 +123,7 @@ private:
         std::string path;
         std::string id;
 
-        // data
+        /// data
         TWCoordinates coordinates;
         int buildings[TW_BUILDING_SIZE];
         int buildingsInQueue;
@@ -131,14 +131,11 @@ private:
         int army[TW_UNIT_SIZE];
         TWCost resources;
         std::string h_value;
-
-        // TODO
         bool isTech[TW_UNIT_SIZE];
         std::vector<TWCoordinates> attackOrders;
         std::vector<TWCoordinates> returnOrders;
-        int warehouseLimit;
-        int popUsed;
-        int popLimit;
+        int storageLimit;
+        int populationLimit;
     };
     std::vector<Village> villages;
 
@@ -163,12 +160,13 @@ private:
         : ended(false)
         , unlockedAt(NULL)
         , loggingInPhase(0)
-        , reviewPhase(REVIEW_PHASE_START)
+        , globalReviewPhase(GRP_START)
+        , villageReviewPhase(VRP_START)
         , startegyDevised(false)
         , currentVillage(0)
         , allVillagesReviewed(false)
-        , villagePhase(0)
         , currentOrder(0)
+        , villageActionsExecuted(false)
         {
             for (int i = 0; i < villagesNumber; i++)
             {
@@ -179,22 +177,38 @@ private:
         bool ended;
         TimePoint* unlockedAt; // NULL - unlocked now
 
-        enum REVIEW_PHASES
+        enum GLOBAL_REVIEW_PHASES // Prefix GRP
         {
-            REVIEW_PHASE_START, // always first
-            REVIEW_PHASE_MAP,
-            REVIEW_PHASE_REPORTS,
-            REVIEW_PHASE_END // always last
+            GRP_START,
+            GRP_MAP,
+            GRP_REPORTS,
+            GRP_END,
+            GRP_WAIT // always last
         };
 
+        #define GRP Session::GLOBAL_REVIEW_PHASES
+
+        enum VILLAGE_REVIEW_PHASES // Prefix VRP
+        {
+            VRP_START,
+            VRP_OVERVIEW,
+            VRP_HQ,
+            VRP_SMITH,
+            VRP_END,
+            VRP_WAIT // always last
+        };
+
+        #define VRP Session::VILLAGE_REVIEW_PHASES
+
         int loggingInPhase; // 0 - not logged, 1 - logging in progress, 2 - logged in
-        int/*REVIEW_PHASES*/ reviewPhase;
+        int/*GLOBAL_REVIEW_PHASES*/ globalReviewPhase;
+        int/*VILLAGE_REVIEW_PHASES*/ villageReviewPhase; /*old*/// 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
         bool startegyDevised;
         int currentVillage;
         bool allVillagesReviewed;
-        int villagePhase; // 0 - begin, 1 - overview in progress, 2 - overview finished, 3 - HQ review in progress, 4 - end
         std::list<cocos2d::network::HttpRequest*> actionRequests;
         int currentOrder;
+        bool villageActionsExecuted;
 
         void nextActionRequest()
         {
@@ -232,26 +246,27 @@ private:
 
     void sessionUpdate();
     void deviseStrategy();
-    void villageReview(Village* v);
-    void villageHQReview(Village* v);
     void executeVillageActions(int v /*villageIndex*/);
 
     TimePoint nextSessionAt;
 
     // http callbacks
-    void onLoggedIn(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onVillageViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onVillageHQViewed(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onActionRequestEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onGoToPlaceEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
-    void onSendArmyEnded(cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response);
+    #define ARGS cocos2d::network::HttpClient* sender, cocos2d::network::HttpResponse* response
+    void onLoggedIn(ARGS);
+    void onVillageOverviewed(ARGS);
+    void onVillageHQViewed(ARGS);
+    void onVillageSmithViewed(ARGS);
+    void onActionRequestEnded(ARGS);
+    void onGoToPlaceEnded(ARGS);
+    void onSendArmyEnded(ARGS);
+    #undef ARGS
 
     // strategy functions
     void printData();
     void buildEco();
     void farm();
 
-    /*
+    /*old*//*
     void (World::*session_page)(); // pointer to current session function
     void session_login();
     void session_overview();
